@@ -1,6 +1,13 @@
 # Copyright The OpenTelemetry Authors
 # SPDX-License-Identifier: Apache-2.0
 
+# =============================================================================
+# JP MORGAN HACKATHON - BASE COLLECTOR CONFIG
+# =============================================================================
+# This config includes PII INJECTION to simulate a compliance problem.
+# Participants will fix this by adding processors in otelcol-config-extras.yml
+# =============================================================================
+
 receivers:
   otlp:
     protocols:
@@ -20,7 +27,6 @@ receivers:
     collection_interval: 10s
   docker_stats:
     endpoint: unix:///var/run/docker.sock
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/44511
     api_version: "1.44"
   postgresql:
     endpoint: ${POSTGRES_HOST}:${POSTGRES_PORT}
@@ -49,7 +55,6 @@ receivers:
     endpoint: "valkey-cart:6379"
     username: "valkey"
     collection_interval: 10s
-  # Host metrics
   hostmetrics:
     root_path: /hostfs
     scrapers:
@@ -109,7 +114,6 @@ receivers:
         metrics:
           system.paging.usage:
             enabled: true
-
       processes:
       process:
         mute_process_exe_error: true
@@ -119,6 +123,7 @@ receivers:
         metrics:
           system.uptime:
             enabled: true
+
 exporters:
   debug:
   otlp:
@@ -141,10 +146,10 @@ exporters:
       tls:
         insecure: true
     sending_queue:
-      # Explicitly set due to bug: https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45016
       num_consumers: 10
       queue_size: 1000
       batch:
+
 processors:
   memory_limiter:
     check_interval: 5s
@@ -157,9 +162,52 @@ processors:
     trace_statements:
       - context: span
         statements:
-          # could be removed when https://github.com/vercel/next.js/pull/64852 is fixed upstream
           - replace_pattern(name, "\\?.*", "")
           - replace_match(name, "GET /api/products/*", "GET /api/products/{productId}")
+  batch:
+
+  # ===========================================================================
+  # 🚨 SIMULATED PII LEAKAGE - THIS IS THE PROBLEM YOU NEED TO FIX!
+  # ===========================================================================
+  # This processor simulates poorly instrumented services leaking PII.
+  # In a real scenario, this would be a SERIOUS compliance violation.
+  # Your job: Add processors in otelcol-config-extras.yml to fix this!
+  # ===========================================================================
+  transform/inject-pii:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # Credit card numbers (PCI-DSS violation!)
+          - set(attributes["user.credit_card"], "4532-8721-9012-3456") where attributes["rpc.service"] == "oteldemo.PaymentService"
+          - set(attributes["payment.card_number"], "5425-2334-3010-9903") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          
+          # SSN / National ID (Major compliance issue!)
+          - set(attributes["user.ssn"], "287-65-4321") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          - set(attributes["customer.national_id"], "123-45-6789") where name == "oteldemo.CheckoutService/PlaceOrder"
+          
+          # Email addresses (PII - GDPR relevant)
+          - set(attributes["user.email"], "john.smith@jpmorgan.example.com") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          - set(attributes["customer.email"], "jane.doe@chase.example.com") where attributes["rpc.service"] == "oteldemo.EmailService"
+          
+          # Phone numbers (PII)
+          - set(attributes["customer.phone"], "+1-212-555-0142") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          
+          # Physical addresses (PII)
+          - set(attributes["billing.address"], "383 Madison Avenue, New York, NY 10179") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          - set(attributes["shipping.address"], "270 Park Avenue, New York, NY 10017") where attributes["rpc.service"] == "oteldemo.ShippingService"
+          
+          # Session tokens / API keys (Security risk!)
+          - set(attributes["session.token"], "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0") where name != ""
+          - set(attributes["api.secret"], "FAKE_API_KEY_do_not_use_12345") where attributes["rpc.service"] == "oteldemo.PaymentService"
+          
+          # Database credentials (Critical security issue!)
+          - set(attributes["db.password"], "Pr0d_P@ssw0rd_2024!") where attributes["db.system"] != ""
+          - set(attributes["db.connection_string"], "postgresql://admin:secretpass123@prod-db.internal:5432/trading") where attributes["db.system"] == "postgresql"
+          
+          # Internal account numbers
+          - set(attributes["account.number"], "7823-4521-8876") where attributes["rpc.service"] == "oteldemo.CheckoutService"
+          - set(attributes["routing.number"], "021000021") where attributes["rpc.service"] == "oteldemo.PaymentService"
 
 connectors:
   spanmetrics:
@@ -168,15 +216,15 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [resourcedetection, memory_limiter, transform]
+      processors: [resourcedetection, memory_limiter, transform, transform/inject-pii, batch]
       exporters: [otlp, debug, spanmetrics]
     metrics:
       receivers: [docker_stats, httpcheck/frontend-proxy, hostmetrics, nginx, otlp, postgresql, redis, spanmetrics]
-      processors: [resourcedetection, memory_limiter]
+      processors: [resourcedetection, memory_limiter, batch]
       exporters: [otlphttp/prometheus, debug]
     logs:
       receivers: [otlp]
-      processors: [resourcedetection, memory_limiter]
+      processors: [resourcedetection, memory_limiter, batch]
       exporters: [opensearch, debug]
   telemetry:
     metrics:

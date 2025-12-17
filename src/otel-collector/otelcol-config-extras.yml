@@ -1,10 +1,25 @@
 # =============================================================================
-# OPENTELEMETRY HACKATHON - YOUR CONFIGURATION FILE
+# 🏆 JP MORGAN x CORALOGIX OPENTELEMETRY HACKATHON
 # =============================================================================
-# 
-# Add your processors and exporters here for each challenge!
-# After changes: make restart service=otel-collector
+# PARTICIPANT CHALLENGE FILE - Edit this file to complete challenges!
+# =============================================================================
 #
+# 🚨 SCENARIO: Your compliance team discovered PII leakage in traces!
+#
+# Look at Jaeger (http://localhost:8080/jaeger) - you will see:
+# - Credit card numbers (PCI-DSS violation!)
+# - Social Security Numbers
+# - Email addresses and phone numbers  
+# - Database credentials
+# - Session tokens
+#
+# YOUR MISSION: Fix these issues using OTel Collector processors!
+#
+# HOW TO USE:
+# 1. Uncomment and complete each processor configuration
+# 2. Add your processor to the pipeline at the bottom
+# 3. Restart: docker compose restart otelcol
+# 4. Verify in Jaeger - the PII should be gone/masked!
 # =============================================================================
 
 exporters:
@@ -16,78 +31,181 @@ exporters:
     timeout: 30s
 
 processors:
-  # -------------------------------------------------------------------------
-  # CHALLENGE #6: Business Context (EASY - Start here!)
-  # -------------------------------------------------------------------------
-  # Uncomment below to add business context to all spans
+
+  # ===========================================================================
+  # CHALLENGE 1: Business Context Attribution (⭐ Easy - 5 min)
+  # ===========================================================================
+  # GOAL: Add resource attributes for cost allocation and chargeback
   #
-  # resource/business:
+  # WHY: In financial services, teams track cloud costs by trading desk,
+  # business unit, and cost center. Resource attributes enable this.
+  #
+  # TASK: Add these attributes:
+  #   - trading.desk: "equity-derivatives"  
+  #   - business.unit: "investment-banking"
+  #   - cost.center: "CC-4521"
+  #   - team.name: "<your team name>"
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourceprocessor
+  # ===========================================================================
+  
+  # resource/cost-allocation:
   #   attributes:
-  #     - key: business.team_id
-  #       value: "${TEAM_NAME}"
+  #     - key: trading.desk
+  #       value: "equity-derivatives"
   #       action: upsert
-  #     - key: deployment.environment
-  #       value: "hackathon"
-  #       action: upsert
+  #     - key: business.unit
+  #       value: "???"
+  #       action: ???
+  #     # Add cost.center and team.name...
 
-  # -------------------------------------------------------------------------
-  # CHALLENGE #4: Head Sampling (EASY)
-  # -------------------------------------------------------------------------
-  # Simple 10% random sampling
-  #
-  # probabilistic_sampler:
-  #   sampling_percentage: 10
 
-  # -------------------------------------------------------------------------
-  # CHALLENGE #3: Drop High Cardinality Fields (MEDIUM)
-  # -------------------------------------------------------------------------
-  # Remove expensive fields like user_agent
+  # ===========================================================================
+  # CHALLENGE 2: Delete Sensitive Keys (⭐ Easy - 5 min)
+  # ===========================================================================
+  # GOAL: Remove dangerous attributes that should NEVER be in telemetry
   #
-  # attributes/drop:
+  # WHY: Database passwords and API secrets in traces are CRITICAL
+  # security vulnerabilities. They must be removed immediately.
+  #
+  # TASK: Delete these keys:
+  #   - db.password
+  #   - db.connection_string  
+  #   - api.secret
+  #   - session.token
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/attributesprocessor
+  # ===========================================================================
+  
+  # attributes/delete-secrets:
   #   actions:
-  #     - key: http.user_agent
+  #     - key: db.password
   #       action: delete
+  #     - key: db.connection_string
+  #       action: ???
+  #     # Add api.secret and session.token...
 
-  # -------------------------------------------------------------------------
-  # CHALLENGE #2: Redact UUIDs (MEDIUM)
-  # -------------------------------------------------------------------------
-  # Replace UUIDs with REDACTED to reduce cardinality
+
+  # ===========================================================================
+  # CHALLENGE 3: PCI-DSS Credit Card Masking (⭐⭐ Medium - 10 min)
+  # ===========================================================================
+  # GOAL: Mask credit card numbers to comply with PCI-DSS
   #
-  # transform/redact:
+  # WHY: PCI-DSS requires card numbers NEVER be stored or transmitted
+  # in clear text. Even in observability telemetry!
+  #
+  # TASK: Use redaction processor to mask these patterns:
+  #   - Visa: 4[0-9]{12}(?:[0-9]{3})?
+  #   - Mastercard: 5[1-5][0-9]{14}
+  #   - Generic: [0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4}
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/redactionprocessor
+  # ===========================================================================
+  
+  # redaction/credit-cards:
+  #   allow_all_keys: true
+  #   blocked_values:
+  #     - "4[0-9]{12}(?:[0-9]{3})?"
+  #     - "???"  # Add Mastercard pattern
+  #     - "???"  # Add generic pattern
+
+
+  # ===========================================================================
+  # CHALLENGE 4: Hash PII for Analytics (⭐⭐ Medium - 10 min)
+  # ===========================================================================
+  # GOAL: Hash emails so we can correlate users without exposing PII
+  #
+  # WHY: You need to track unique users for analytics, but cannot
+  # store actual PII. Hashing provides consistent IDs safely.
+  #
+  # TASK: Hash then delete the original:
+  #   - user.email -> user.email_hash (SHA256)
+  #   - customer.email -> customer.email_hash (SHA256)
+  #   - user.ssn -> user.ssn_hash (SHA256)
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/pkg/ottl/ottlfuncs
+  # ===========================================================================
+  
+  # transform/hash-pii:
   #   error_mode: ignore
   #   trace_statements:
   #     - context: span
   #       statements:
-  #         - replace_pattern(attributes["http.url"], 
-  #             "([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", 
-  #             "REDACTED")
+  #         - set(attributes["user.email_hash"], SHA256(attributes["user.email"])) where attributes["user.email"] != nil
+  #         - delete_key(attributes, "user.email")
+  #         # Add customer.email and user.ssn hashing...
 
-  # -------------------------------------------------------------------------
-  # CHALLENGE #5: Tail Sampling (HARD)
-  # -------------------------------------------------------------------------
-  # Intelligent sampling - keep errors, slow traces, sample rest
+
+  # ===========================================================================
+  # CHALLENGE 5: Zero-Trust Allowlist (⭐⭐⭐ Hard - 15 min)
+  # ===========================================================================
+  # GOAL: Implement fail-closed security - only allow known-safe attributes
   #
-  # tail_sampling:
+  # WHY: The safest approach is to ALLOWLIST what CAN be in telemetry,
+  # rather than trying to blocklist everything dangerous.
+  #
+  # TASK: Configure redaction with allow_all_keys: false
+  # Allow ONLY these safe attributes:
+  #   - http.method, http.status_code, http.route
+  #   - rpc.service, rpc.method
+  #   - db.system, db.operation, db.name (NOT db.password!)
+  #   - service.name, service.version
+  #   - Your business context from Challenge 1
+  #   - Your hashed fields from Challenge 4
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/redactionprocessor
+  # ===========================================================================
+  
+  # redaction/allowlist:
+  #   allow_all_keys: false
+  #   allowed_keys:
+  #     - http.method
+  #     - http.status_code
+  #     - http.route
+  #     - rpc.service
+  #     - rpc.method
+  #     # Add more safe keys...
+  #   summary: debug
+
+
+  # ===========================================================================
+  # CHALLENGE 6: Intelligent Tail Sampling (⭐⭐⭐ Hard - 20 min)
+  # ===========================================================================
+  # GOAL: Keep ALL errors but sample routine traffic
+  #
+  # WHY: At JP Morgan scale, you cannot keep 100% of traces.
+  # But you MUST keep 100% of errors for debugging.
+  # Tail sampling makes intelligent decisions based on complete traces.
+  #
+  # TASK: Configure these policies:
+  #   1. Keep 100% of traces with errors
+  #   2. Keep 100% of traces slower than 2 seconds
+  #   3. Keep 100% of PaymentService traces (critical path)
+  #   4. Sample 10% of everything else
+  #
+  # DOCS: https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/tailsamplingprocessor
+  # ===========================================================================
+  
+  # tail_sampling/intelligent:
   #   decision_wait: 10s
-  #   num_traces: 100
+  #   num_traces: 50000
   #   policies:
-  #     - name: errors
+  #     - name: keep-all-errors
   #       type: status_code
   #       status_code:
-  #         status_codes: [ERROR]
-  #     - name: slow
+  #         status_codes:
+  #           - ERROR
+  #     - name: keep-slow-traces
   #       type: latency
   #       latency:
-  #         threshold_ms: 1000
-  #     - name: baseline
-  #       type: probabilistic
-  #       probabilistic:
-  #         sampling_percentage: 10
+  #         threshold_ms: 2000
+  #     # Add PaymentService policy...
+  #     # Add 10% baseline sampling...
+
 
 # =============================================================================
-# CHALLENGE #1: Span Metrics (EASY)
+# CONNECTORS
 # =============================================================================
-# Enhanced span metrics with additional dimensions
 connectors:
   spanmetrics:
     dimensions:
@@ -101,24 +219,48 @@ connectors:
     exemplars:
       enabled: true
 
+
 # =============================================================================
-# SERVICE PIPELINES
+# 🎯 SERVICE PIPELINES - ADD YOUR PROCESSORS HERE!
 # =============================================================================
-# Add your processors to the pipeline!
-# Order: resourcedetection -> your processors -> memory_limiter -> sampling
+# IMPORTANT: Uncomment processors as you complete each challenge!
+# ORDER MATTERS - processors run in the order listed.
+#
+# Recommended order:
+# 1. resource/cost-allocation (adds context)
+# 2. attributes/delete-secrets (removes dangerous keys)
+# 3. transform/hash-pii (hash before redaction!)
+# 4. redaction/credit-cards (mask card numbers)
+# 5. redaction/allowlist (final safety net)
+# 6. tail_sampling/intelligent (sampling last, before batch)
+# =============================================================================
+
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [resourcedetection, memory_limiter, transform]
+      processors:
+        - resourcedetection
+        - memory_limiter
+        # ---------------------------------------------------------
+        # 👇 ADD YOUR CHALLENGE PROCESSORS BELOW (in order!)
+        # ---------------------------------------------------------
+        # - resource/cost-allocation      # Challenge 1
+        # - attributes/delete-secrets     # Challenge 2
+        # - transform/hash-pii            # Challenge 4 (before redaction!)
+        # - redaction/credit-cards        # Challenge 3
+        # - redaction/allowlist           # Challenge 5
+        # - tail_sampling/intelligent     # Challenge 6
+        # ---------------------------------------------------------
+        - batch
       exporters: [coralogix, otlp, spanmetrics, debug]
     
     metrics:
       receivers: [docker_stats, httpcheck/frontend-proxy, hostmetrics, nginx, otlp, postgresql, redis, spanmetrics]
-      processors: [resourcedetection, memory_limiter]
+      processors: [resourcedetection, memory_limiter, batch]
       exporters: [coralogix, otlphttp/prometheus, debug]
     
     logs:
       receivers: [otlp]
-      processors: [resourcedetection, memory_limiter]
+      processors: [resourcedetection, memory_limiter, batch]
       exporters: [coralogix, opensearch, debug]
