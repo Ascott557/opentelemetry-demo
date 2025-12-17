@@ -1,13 +1,10 @@
-# extra settings to be merged into OpenTelemetry Collector configuration
-# do not delete this file
-
 # =============================================================================
-# JP MORGAN x CORALOGIX OPENTELEMETRY HACKATHON
+# 🏆 JP MORGAN x CORALOGIX OPENTELEMETRY HACKATHON
 # =============================================================================
-# YOUR CHALLENGE: Fix the PII leakage! Check Jaeger to see the problem.
-# Edit this file, then: docker compose restart otelcol
+# PARTICIPANT CHALLENGE FILE - Edit this file to complete challenges!
 # =============================================================================
 
+# Coralogix Exporter - sends data to Coralogix
 exporters:
   coralogix:
     domain: "${CX_DOMAIN}"
@@ -18,21 +15,17 @@ exporters:
 
 processors:
   # ===========================================================================
-  # CHALLENGE 1: Business Context (Easy - 5 min)
-  # Add cost allocation attributes
+  # CHALLENGE 1: Business Context Attribution (Easy)
   # ===========================================================================
+  # Uncomment and add more attributes for your team
   # resource/cost-allocation:
   #   attributes:
   #     - key: trading.desk
   #       value: "equity-derivatives"
   #       action: upsert
-  #     - key: business.unit
-  #       value: "investment-banking"
-  #       action: upsert
 
   # ===========================================================================
-  # CHALLENGE 2: Delete Secrets (Easy - 5 min)
-  # Remove dangerous keys like db.password, api.secret
+  # CHALLENGE 2: Delete Sensitive Keys (Easy)
   # ===========================================================================
   # attributes/delete-secrets:
   #   actions:
@@ -46,8 +39,7 @@ processors:
   #       action: delete
 
   # ===========================================================================
-  # CHALLENGE 3: Credit Card Masking (Medium - 10 min)
-  # Mask credit card patterns for PCI-DSS compliance
+  # CHALLENGE 3: PCI-DSS Credit Card Masking (Medium)
   # ===========================================================================
   # redaction/credit-cards:
   #   allow_all_keys: true
@@ -57,8 +49,7 @@ processors:
   #     - "[0-9]{4}[-\\s]?[0-9]{4}[-\\s]?[0-9]{4}[-\\s]?[0-9]{4}"
 
   # ===========================================================================
-  # CHALLENGE 4: Hash PII (Medium - 10 min)
-  # Hash emails/SSN for analytics without exposing PII
+  # CHALLENGE 4: Hash PII for Analytics (Medium)
   # ===========================================================================
   # transform/hash-pii:
   #   error_mode: ignore
@@ -69,8 +60,7 @@ processors:
   #         - delete_key(attributes, "user.email")
 
   # ===========================================================================
-  # CHALLENGE 5: Zero-Trust Allowlist (Hard - 15 min)
-  # Only allow known-safe attributes
+  # CHALLENGE 5: Zero-Trust Allowlist (Hard)
   # ===========================================================================
   # redaction/allowlist:
   #   allow_all_keys: false
@@ -78,21 +68,22 @@ processors:
   #     - http.method
   #     - http.status_code
   #     - rpc.service
+  #     - rpc.method
   #     - service.name
   #   summary: debug
 
   # ===========================================================================
-  # CHALLENGE 6: Tail Sampling (Hard - 20 min)
-  # Keep errors, sample routine traffic
+  # CHALLENGE 6: Intelligent Tail Sampling (Hard)
   # ===========================================================================
   # tail_sampling/intelligent:
   #   decision_wait: 10s
   #   num_traces: 50000
   #   policies:
-  #     - name: keep-errors
+  #     - name: keep-all-errors
   #       type: status_code
   #       status_code:
-  #         status_codes: [ERROR]
+  #         status_codes:
+  #           - ERROR
   #     - name: sample-rest
   #       type: probabilistic
   #       probabilistic:
@@ -103,34 +94,29 @@ connectors:
     dimensions:
       - name: http.method
       - name: http.status_code
+      - name: http.route
       - name: service.name
+    histogram:
+      explicit:
+        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+    exemplars:
+      enabled: true
 
 # =============================================================================
-# PIPELINE - The PII injection runs in base config, your fixes run here
+# SERVICE PIPELINES - Coralogix exporter is ENABLED
 # =============================================================================
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors:
-        - resourcedetection
-        - memory_limiter
-        - transform
-        - transform/inject-pii
-        # --- ADD YOUR PROCESSORS HERE ---
-        # - resource/cost-allocation
-        # - attributes/delete-secrets
-        # - transform/hash-pii
-        # - redaction/credit-cards
-        # - redaction/allowlist
-        # - tail_sampling/intelligent
-        # --------------------------------
-        - batch
-      exporters: [coralogix, otlp, spanmetrics, debug]
+      processors: [resourcedetection, memory_limiter, transform, transform/inject-pii, batch]
+      exporters: [coralogix, otlp, debug, spanmetrics]
+    
     metrics:
       receivers: [docker_stats, httpcheck/frontend-proxy, hostmetrics, nginx, otlp, postgresql, redis, spanmetrics]
       processors: [resourcedetection, memory_limiter, batch]
       exporters: [coralogix, otlphttp/prometheus, debug]
+    
     logs:
       receivers: [otlp]
       processors: [resourcedetection, memory_limiter, batch]
