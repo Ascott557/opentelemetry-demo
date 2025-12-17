@@ -1,0 +1,43 @@
+{
+  "name": "OTel Hackathon with Coralogix",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "yaml.validate": true,
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2
+      }
+    }
+  },
+  
+  "postCreateCommand": "npm install && docker compose pull",
+  "postStartCommand": "cat HACKATHON-README.md 2>/dev/null || echo 'Ready! Run: make start'",
+  
+  "forwardPorts": [8080, 4317, 4318, 16686, 9090, 3000, 8089],
+  
+  "portsAttributes": {
+    "8080": { "label": "Demo Store", "onAutoForward": "openBrowser" },
+    "16686": { "label": "Jaeger" },
+    "9090": { "label": "Prometheus" },
+    "3000": { "label": "Grafana" },
+    "8089": { "label": "Load Generator" }
+  },
+  
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  }
+}

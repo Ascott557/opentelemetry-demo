@@ -1,18 +1,124 @@
-# Copyright The OpenTelemetry Authors
-# SPDX-License-Identifier: Apache-2.0
-
-# extra settings to be merged into OpenTelemetry Collector configuration
-# do not delete this file
-
-## Example configuration for sending data to your own OTLP HTTP backend
-## Note: the spanmetrics exporter must be included in the exporters array
-## if overriding the traces pipeline.
-##
-#  exporters:
-#    otlphttp/example:
-#      endpoint: <your-endpoint-url>
+# =============================================================================
+# OPENTELEMETRY HACKATHON - YOUR CONFIGURATION FILE
+# =============================================================================
+# 
+# Add your processors and exporters here for each challenge!
+# After changes: make restart service=otel-collector
 #
-#  service:
-#    pipelines:
-#      traces:
-#        exporters: [spanmetrics, otlphttp/example]
+# =============================================================================
+
+exporters:
+  coralogix:
+    domain: "${CX_DOMAIN}"
+    private_key: "${CX_API_KEY}"
+    application_name: "otel-hackathon"
+    subsystem_name: "${TEAM_NAME}"
+    timeout: 30s
+
+processors:
+  # -------------------------------------------------------------------------
+  # CHALLENGE #6: Business Context (EASY - Start here!)
+  # -------------------------------------------------------------------------
+  # Uncomment below to add business context to all spans
+  #
+  # resource/business:
+  #   attributes:
+  #     - key: business.team_id
+  #       value: "${TEAM_NAME}"
+  #       action: upsert
+  #     - key: deployment.environment
+  #       value: "hackathon"
+  #       action: upsert
+
+  # -------------------------------------------------------------------------
+  # CHALLENGE #4: Head Sampling (EASY)
+  # -------------------------------------------------------------------------
+  # Simple 10% random sampling
+  #
+  # probabilistic_sampler:
+  #   sampling_percentage: 10
+
+  # -------------------------------------------------------------------------
+  # CHALLENGE #3: Drop High Cardinality Fields (MEDIUM)
+  # -------------------------------------------------------------------------
+  # Remove expensive fields like user_agent
+  #
+  # attributes/drop:
+  #   actions:
+  #     - key: http.user_agent
+  #       action: delete
+
+  # -------------------------------------------------------------------------
+  # CHALLENGE #2: Redact UUIDs (MEDIUM)
+  # -------------------------------------------------------------------------
+  # Replace UUIDs with REDACTED to reduce cardinality
+  #
+  # transform/redact:
+  #   error_mode: ignore
+  #   trace_statements:
+  #     - context: span
+  #       statements:
+  #         - replace_pattern(attributes["http.url"], 
+  #             "([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", 
+  #             "REDACTED")
+
+  # -------------------------------------------------------------------------
+  # CHALLENGE #5: Tail Sampling (HARD)
+  # -------------------------------------------------------------------------
+  # Intelligent sampling - keep errors, slow traces, sample rest
+  #
+  # tail_sampling:
+  #   decision_wait: 10s
+  #   num_traces: 100
+  #   policies:
+  #     - name: errors
+  #       type: status_code
+  #       status_code:
+  #         status_codes: [ERROR]
+  #     - name: slow
+  #       type: latency
+  #       latency:
+  #         threshold_ms: 1000
+  #     - name: baseline
+  #       type: probabilistic
+  #       probabilistic:
+  #         sampling_percentage: 10
+
+# =============================================================================
+# CHALLENGE #1: Span Metrics (EASY)
+# =============================================================================
+# Enhanced span metrics with additional dimensions
+connectors:
+  spanmetrics:
+    dimensions:
+      - name: http.method
+      - name: http.status_code
+      - name: http.route
+      - name: service.name
+    histogram:
+      explicit:
+        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+    exemplars:
+      enabled: true
+
+# =============================================================================
+# SERVICE PIPELINES
+# =============================================================================
+# Add your processors to the pipeline!
+# Order: resourcedetection -> your processors -> memory_limiter -> sampling
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, memory_limiter, transform]
+      exporters: [coralogix, otlp, spanmetrics, debug]
+    
+    metrics:
+      receivers: [docker_stats, httpcheck/frontend-proxy, hostmetrics, nginx, otlp, postgresql, redis, spanmetrics]
+      processors: [resourcedetection, memory_limiter]
+      exporters: [coralogix, otlphttp/prometheus, debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, memory_limiter]
+      exporters: [coralogix, opensearch, debug]
