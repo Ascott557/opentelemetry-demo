@@ -22,7 +22,7 @@
     }
   },
   
-  "postCreateCommand": "npm install && docker compose pull && cp -n .env.override.template .env.override 2>/dev/null || true",
+  "postCreateCommand": "npm install && cp -n .env.override.template .env.override 2>/dev/null || true",
   "postStartCommand": "echo '\\n\\n🚀 HACKATHON READY\\n==================\\n📖 Instructions: HACKATHON-README.md\\n📋 Reference: CHEAT-SHEET.md\\n\\n1. Edit .env.override (set TEAM_NAME + API key)\\n2. Run: make start\\n3. Wait 2 min for services\\n4. Verify in Coralogix\\n\\n'",
   
   "forwardPorts": [8080, 4317, 4318, 16686, 9090, 3000, 8089],
