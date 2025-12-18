@@ -58,23 +58,23 @@ All verification happens in Coralogix. Get the URL from your facilitator:
 
 ## Challenges
 
-| # | Challenge | Points | Difficulty | Verify In |
-|---|-----------|--------|------------|-----------|
-| 0 | Hello Coralogix | 10 | Warmup | LiveTail - see your logs |
-| 1 | Find the PII | 20 | Discovery | Screenshot of PII found |
-| 2 | Delete Secrets | 30 | Easy | Tracing - `db.password` gone |
-| 3 | Mask Credit Cards | 40 | Medium | Tracing - cards show `****` |
-| 4 | Hash Emails | 40 (+10 bonus) | Medium | Tracing - see `email_hash` |
-| 5 | Zero-Trust Mode | 50 | Hard | Tracing - only allowed keys |
-| 6 | Tail Sampling | 50 | Hard | Tracing - errors kept, rest sampled |
+| Challenge | Points | Difficulty | Verify In |
+|-----------|--------|------------|-----------|
+| Hello Coralogix | 10 | Warmup | LiveTail - see your logs |
+| Find the PII | 20 | Discovery | Screenshot of PII found |
+| Delete Secrets | 30 | Easy | Tracing - `db.password` gone |
+| Mask Credit Cards | 40 | Medium | Tracing - cards show `****` |
+| Hash Emails | 40 | Medium | Tracing - see `email_hash` |
+| Zero-Trust Mode | 50 | Hard | Tracing - only allowed keys |
+| Tail Sampling | 50 | Hard | Tracing - errors kept, rest sampled |
 
-**Total Points: 240** (250 with bonus)
+**Total Points: 240**
 
 ---
 
 ## Challenge Details
 
-### Challenge 0: Hello Coralogix (Warmup)
+### Hello Coralogix (Warmup - 10 pts)
 **Goal:** Verify your environment works and data flows to Coralogix.
 
 1. Ensure your `TEAM_NAME` is set in `.env.override`
@@ -88,7 +88,7 @@ All verification happens in Coralogix. Get the URL from your facilitator:
 
 ---
 
-### Challenge 1: Find the PII (Discovery)
+### Find the PII (Discovery - 20 pts)
 **Goal:** Use Coralogix to discover what sensitive data is leaking.
 
 No code changes needed - this is pure investigation!
@@ -110,7 +110,7 @@ No code changes needed - this is pure investigation!
 
 ---
 
-### Challenge 2: Delete Secrets (Easy)
+### Delete Secrets (Easy - 30 pts)
 **Goal:** Remove database credentials and API secrets from traces.
 
 1. Open `src/otel-collector/otelcol-config-extras.yml`
@@ -126,7 +126,7 @@ No code changes needed - this is pure investigation!
 
 ---
 
-### Challenge 3: Mask Credit Cards (Medium)
+### Mask Credit Cards (Medium - 40 pts)
 **Goal:** Redact credit card numbers while keeping the attribute present.
 
 1. Open `src/otel-collector/otelcol-config-extras.yml`
@@ -142,7 +142,7 @@ No code changes needed - this is pure investigation!
 
 ---
 
-### Challenge 4: Hash Emails for Analytics (Medium)
+### Hash Emails (Medium - 40 pts)
 **Goal:** Replace email addresses with SHA256 hashes for pseudonymized analytics.
 
 1. Open `src/otel-collector/otelcol-config-extras.yml`
@@ -160,7 +160,7 @@ The original `user.email` should be gone!
 
 ---
 
-### Challenge 5: Zero-Trust Allowlist (Hard)
+### Zero-Trust Allowlist (Hard - 50 pts)
 **Goal:** Implement fail-closed security - only explicitly allowed attributes pass through.
 
 > **WARNING:** This is destructive! Most span attributes will be removed. Only enable this if you understand the implications.
@@ -178,7 +178,7 @@ The original `user.email` should be gone!
 
 ---
 
-### Challenge 6: Intelligent Tail Sampling (Hard)
+### Tail Sampling (Hard - 50 pts)
 **Goal:** Keep 100% of errors, sample 10% of successful requests to reduce costs.
 
 1. Open `src/otel-collector/otelcol-config-extras.yml`
@@ -217,7 +217,7 @@ make restart service=otel-collector
 | **Logs** | LiveTail | Real-time log messages |
 | **Traces** | Explore > Tracing | Span attributes (where PII lives!) |
 
-The injected PII appears in **trace span attributes**, not logs. For Challenges 2-6, use **Explore > Tracing** to verify your fixes.
+The injected PII appears in **trace span attributes**, not logs. Use **Explore > Tracing** to verify your fixes.
 
 ---
 
@@ -234,13 +234,13 @@ After completing each challenge:
 
 | Challenge | What to Screenshot | Must Show |
 |-----------|-------------------|-----------|
-| 0 | LiveTail with logs | Subsystem filter = your team, logs visible |
-| 1 | Trace span with PII | Expanded span showing `user.credit_card`, `db.password` |
-| 2 | Trace span WITHOUT secrets | `db.password` and `api.secret` are GONE |
-| 3 | Trace span with masked cards | `user.credit_card` shows `****` |
-| 4 | Trace span with hash | `user.email_hash` visible, `user.email` GONE |
-| 5 | Trace span minimal | Only allowed keys remain |
-| 6 | Error trace kept | Show an error trace that wasn't dropped |
+| Hello Coralogix | LiveTail with logs | Subsystem filter = your team, logs visible |
+| Find the PII | Trace span with PII | Expanded span showing `user.credit_card`, `db.password` |
+| Delete Secrets | Trace span WITHOUT secrets | `db.password` and `api.secret` are GONE |
+| Mask Credit Cards | Trace span with masked cards | `user.credit_card` shows `****` |
+| Hash Emails | Trace span with hash | `user.email_hash` visible, `user.email` GONE |
+| Zero-Trust | Trace span minimal | Only allowed keys remain |
+| Tail Sampling | Error trace kept | Show an error trace that wasn't dropped |
 
 ### Screenshot Tips
 - Use **Prettify** in LiveTail to make JSON readable
@@ -282,16 +282,16 @@ When adding processors, order matters! The final pipeline should look like:
 
 ```yaml
 processors: [
-  resourcedetection,      # Base
-  memory_limiter,         # Base
-  transform,              # Base - URL cleanup
-  transform/inject-pii,   # Base - Creates the problem
-  attributes/delete-secrets,  # Challenge 2
-  transform/hash-pii,     # Challenge 4 (before redaction!)
-  redaction/credit-cards, # Challenge 3
-  redaction/allowlist,    # Challenge 5
-  tail_sampling/intelligent,  # Challenge 6 (before batch!)
-  batch                   # Base - Always last
+  resourcedetection,
+  memory_limiter,
+  transform,
+  transform/inject-pii,
+  attributes/delete-secrets,     # Delete Secrets
+  transform/hash-pii,            # Hash Emails (before redaction!)
+  redaction/credit-cards,        # Mask Credit Cards
+  redaction/allowlist,           # Zero-Trust
+  tail_sampling/intelligent,     # Tail Sampling (before batch!)
+  batch
 ]
 ```
 

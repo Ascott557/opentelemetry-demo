@@ -26,21 +26,20 @@ Quick reference for troubleshooting and verification.
 
 Here's what PII is injected and where to find it:
 
-| Attribute | Example Value | Service | Challenge to Fix |
-|-----------|---------------|---------|------------------|
-| `user.credit_card` | `4532-8721-9012-3456` | PaymentService | Challenge 3 |
-| `payment.card_number` | `5425-2334-3010-9903` | CheckoutService | Challenge 3 |
-| `db.password` | `Pr0d_P@ssw0rd_2024!` | Any with db.system | Challenge 2 |
-| `db.connection_string` | `postgresql://admin:...` | PostgreSQL spans | Challenge 2 |
-| `api.secret` | `FAKE_API_KEY_do_not_use_12345` | PaymentService | Challenge 2 |
-| `session.token` | `eyJhbGciOiJIUzI1Ni...` | CheckoutService | Challenge 2 |
-| `user.email` | `john.smith@example.com` | CheckoutService | Challenge 4 |
-| `customer.email` | `jane.doe@example.com` | EmailService | Challenge 4 |
-| `user.ssn` | `287-65-4321` | CheckoutService | Challenge 4 (bonus) |
-| `customer.national_id` | `123-45-6789` | CheckoutService/PlaceOrder | Challenge 4 (bonus) |
-| `customer.phone` | `+1-212-555-0142` | CheckoutService | Challenge 5 |
-| `billing.address` | `123 Main Street...` | CheckoutService | Challenge 5 |
-| `shipping.address` | `456 Commerce Blvd...` | ShippingService | Challenge 5 |
+| Attribute | Example Value | Service | Fix With |
+|-----------|---------------|---------|----------|
+| `user.credit_card` | `4532-8721-9012-3456` | PaymentService | Mask Credit Cards |
+| `payment.card_number` | `5425-2334-3010-9903` | CheckoutService | Mask Credit Cards |
+| `db.password` | `Pr0d_P@ssw0rd_2024!` | Any with db.system | Delete Secrets |
+| `db.connection_string` | `postgresql://admin:...` | PostgreSQL spans | Delete Secrets |
+| `api.secret` | `FAKE_API_KEY_do_not_use_12345` | PaymentService | Delete Secrets |
+| `session.token` | `eyJhbGciOiJIUzI1Ni...` | CheckoutService | Delete Secrets |
+| `user.email` | `john.smith@example.com` | CheckoutService | Hash Emails |
+| `customer.email` | `jane.doe@example.com` | EmailService | Hash Emails |
+| `user.ssn` | `287-65-4321` | CheckoutService | Hash Emails (bonus) |
+| `customer.phone` | `+1-212-555-0142` | CheckoutService | Zero-Trust |
+| `billing.address` | `123 Main Street...` | CheckoutService | Zero-Trust |
+| `shipping.address` | `456 Commerce Blvd...` | ShippingService | Zero-Trust |
 
 ---
 
