@@ -1,5 +1,12 @@
-# Hackathon Config - See HACKATHON-README.md for instructions
-# After changes: make restart service=otel-collector
+# =============================================================================
+# HACKATHON CONFIG
+# =============================================================================
+# Instructions: HACKATHON-README.md
+# Processor Reference: CHEAT-SHEET.md
+#
+# After ANY change: make restart service=otel-collector
+# Then wait 1-2 minutes for data to appear in Coralogix
+# =============================================================================
 
 exporters:
   coralogix:
@@ -10,61 +17,11 @@ exporters:
     timeout: 30s
 
 processors:
-
-  # DELETE SECRETS (30 pts) - remove db.password, api.secret, etc.
-  # attributes/delete-secrets:
-  #   actions:
-  #     - key: db.password
-  #       action: delete
-  #     - key: db.connection_string
-  #       action: delete
-  #     - key: api.secret
-  #       action: delete
-  #     - key: session.token
-  #       action: delete
-
-  # MASK CREDIT CARDS (40 pts) - redact card numbers to ****
-  # redaction/credit-cards:
-  #   allow_all_keys: true
-  #   blocked_values:
-  #     - "4[0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
-  #     - "5[1-5][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
-  #     - "[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
-
-  # HASH EMAILS (40 pts) - SHA256 hash for pseudonymization
-  # transform/hash-pii:
-  #   error_mode: ignore
-  #   trace_statements:
-  #     - context: span
-  #       statements:
-  #         - set(attributes["user.email_hash"], SHA256(attributes["user.email"])) where attributes["user.email"] != nil
-  #         - delete_key(attributes, "user.email")
-
-  # ZERO-TRUST ALLOWLIST (50 pts) - only allow specific attributes
-  # redaction/allowlist:
-  #   allow_all_keys: false
-  #   allowed_keys:
-  #     - http.method
-  #     - http.status_code
-  #     - http.route
-  #     - rpc.service
-  #     - rpc.method
-  #     - service.name
-  #   summary: debug
-
-  # TAIL SAMPLING (50 pts) - keep errors, sample 10% of success
-  # tail_sampling/intelligent:
-  #   decision_wait: 10s
-  #   num_traces: 50000
-  #   policies:
-  #     - name: keep-all-errors
-  #       type: status_code
-  #       status_code:
-  #         status_codes: [ERROR]
-  #     - name: sample-rest
-  #       type: probabilistic
-  #       probabilistic:
-  #         sampling_percentage: 10
+  # ===========================================================================
+  # PASTE YOUR CHALLENGE PROCESSORS HERE
+  # ===========================================================================
+  # Copy processor configs from CHEAT-SHEET.md
+  # ===========================================================================
 
 connectors:
   spanmetrics:
@@ -83,8 +40,8 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
+      # Add your processors before 'batch'
       processors: [resourcedetection, memory_limiter, transform, transform/inject-pii, batch]
-      # ↑ Add your processors before "batch"
       exporters: [coralogix, otlp, debug, spanmetrics]
 
     metrics:

@@ -1,6 +1,163 @@
 # OpenTelemetry Hackathon - Cheat Sheet
 
-Quick reference for troubleshooting and verification.
+Copy-paste processor configs and troubleshooting reference.
+
+---
+
+## Processor Configs (Copy-Paste)
+
+Copy these into the `processors:` section of `otelcol-config-extras.yml`.
+Then add the processor name to your pipeline.
+
+---
+
+### Delete Secrets (30 pts)
+
+**Goal:** Remove database passwords and API secrets from traces.
+
+```yaml
+  attributes/delete-secrets:
+    actions:
+      - key: db.password
+        action: delete
+      - key: db.connection_string
+        action: delete
+      - key: api.secret
+        action: delete
+      - key: session.token
+        action: delete
+```
+
+**Add to pipeline:** `attributes/delete-secrets`
+
+**Verify:** Explore → Tracing → CheckoutService → `db.password` should be GONE
+
+---
+
+### Mask Credit Cards (40 pts)
+
+**Goal:** Redact credit card numbers to `****` for PCI-DSS compliance.
+
+```yaml
+  redaction/credit-cards:
+    allow_all_keys: true
+    blocked_values:
+      - "4[0-9]{3}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
+      - "5[1-5][0-9]{2}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
+      - "[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}"
+```
+
+**Add to pipeline:** `redaction/credit-cards`
+
+**Verify:** Explore → Tracing → PaymentService → `user.credit_card` shows `****`
+
+---
+
+### Hash Emails (40 pts)
+
+**Goal:** Replace emails with SHA256 hashes for pseudonymized analytics.
+
+```yaml
+  transform/hash-pii:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["user.email_hash"], SHA256(attributes["user.email"])) where attributes["user.email"] != nil
+          - delete_key(attributes, "user.email")
+```
+
+**Add to pipeline:** `transform/hash-pii` (BEFORE any redaction processors!)
+
+**Verify:** Explore → Tracing → CheckoutService → see `user.email_hash`, no `user.email`
+
+**BONUS (+10 pts):** Also hash `user.ssn` and `customer.email` - add these statements:
+```yaml
+          - set(attributes["user.ssn_hash"], SHA256(attributes["user.ssn"])) where attributes["user.ssn"] != nil
+          - delete_key(attributes, "user.ssn")
+          - set(attributes["customer.email_hash"], SHA256(attributes["customer.email"])) where attributes["customer.email"] != nil
+          - delete_key(attributes, "customer.email")
+```
+
+---
+
+### Zero-Trust Allowlist (50 pts)
+
+**Goal:** Only allow explicitly approved attributes. Everything else is dropped.
+
+**WARNING:** This is destructive! Most span attributes will be removed.
+
+```yaml
+  redaction/allowlist:
+    allow_all_keys: false
+    allowed_keys:
+      - http.method
+      - http.status_code
+      - http.route
+      - http.url
+      - rpc.service
+      - rpc.method
+      - service.name
+      - span.kind
+      - status.code
+      - otel.status_code
+    summary: debug
+```
+
+**Add to pipeline:** `redaction/allowlist`
+
+**Verify:** Explore → Tracing → Only allowed keys remain
+
+---
+
+### Tail Sampling (50 pts)
+
+**Goal:** Keep 100% of errors, sample 10% of successful requests.
+
+```yaml
+  tail_sampling/intelligent:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - name: keep-all-errors
+        type: status_code
+        status_code:
+          status_codes:
+            - ERROR
+      - name: keep-slow-traces
+        type: latency
+        latency:
+          threshold_ms: 2000
+      - name: sample-rest
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+```
+
+**Add to pipeline:** `tail_sampling/intelligent` (BEFORE `batch`!)
+
+**Verify:** Error traces always appear, successful traces reduced to ~10%
+
+---
+
+## Pipeline Order
+
+When adding multiple processors, order matters:
+
+```yaml
+processors: [
+  resourcedetection,
+  memory_limiter,
+  transform,
+  transform/inject-pii,
+  attributes/delete-secrets,     # Delete Secrets
+  transform/hash-pii,            # Hash Emails (BEFORE redaction!)
+  redaction/credit-cards,        # Mask Credit Cards
+  redaction/allowlist,           # Zero-Trust
+  tail_sampling/intelligent,     # Tail Sampling (BEFORE batch!)
+  batch,
+]
+```
 
 ---
 
@@ -24,8 +181,6 @@ Quick reference for troubleshooting and verification.
 
 ## PII Attribute Reference
 
-Here's what PII is injected and where to find it:
-
 | Attribute | Example Value | Service | Fix With |
 |-----------|---------------|---------|----------|
 | `user.credit_card` | `4532-8721-9012-3456` | PaymentService | Mask Credit Cards |
@@ -48,46 +203,21 @@ Here's what PII is injected and where to find it:
 ### "unknown processor type"
 **Cause:** Typo in processor name
 **Fix:** Check spelling exactly matches:
-- `attributes/delete-secrets` (not `attribute/...`)
-- `redaction/credit-cards` (not `redact/...`)
-- `transform/hash-pii` (not `transformer/...`)
-- `tail_sampling/intelligent` (not `tailsampling/...`)
+- `attributes/delete-secrets`
+- `redaction/credit-cards`
+- `transform/hash-pii`
+- `redaction/allowlist`
+- `tail_sampling/intelligent`
 
 ### YAML Indentation Error
 **Cause:** Using tabs or wrong number of spaces
 **Fix:** Use exactly 2 spaces for each indentation level. Never use tabs.
 
-```yaml
-# WRONG (tabs or 4 spaces)
-processors:
-    transform:
-        error_mode: ignore
-
-# CORRECT (2 spaces)
-processors:
-  transform:
-    error_mode: ignore
-```
-
 ### Processor Not Working
 **Cause:** Processor defined but not added to pipeline
 **Fix:** You must do TWO things:
-1. Uncomment the processor definition
-2. Add the processor name to the pipeline
-
-```yaml
-# Step 1: Uncomment the processor (you did this)
-attributes/delete-secrets:
-  actions:
-    - key: db.password
-      action: delete
-
-# Step 2: Add to pipeline (you might have forgotten this!)
-service:
-  pipelines:
-    traces:
-      processors: [..., attributes/delete-secrets, batch]  # <-- ADD IT HERE
-```
+1. Add the processor config to the `processors:` section
+2. Add the processor name to the pipeline array
 
 ### No Data in Coralogix
 **Causes:**
@@ -104,124 +234,8 @@ service:
 **Cause:** Collector can't connect to Coralogix
 **Fix:** 
 1. Check `CX_API_KEY` is set in `.env.override`
-2. Check `CX_DOMAIN` matches what facilitator provided (e.g., `ingress.eu2.coralogix.com:443`)
+2. Check `CX_DOMAIN` matches what facilitator provided
 3. Run `docker logs otel-collector --tail=50` to see errors
-
-### Collector Won't Start
-**Cause:** Invalid YAML syntax
-**Fix:**
-1. Check `docker logs otel-collector --tail=50` for error message
-2. Look for line number in error
-3. Common issues: missing colon, wrong indentation, unclosed quotes
-
----
-
-## Verification Examples
-
-### Challenge 2: Delete Secrets
-
-**BEFORE (problem):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    "db.password": "Pr0d_P@ssw0rd_2024!",
-    "db.connection_string": "postgresql://admin:secretpass123@...",
-    "api.secret": "FAKE_API_KEY_do_not_use_12345"
-  }
-}
-```
-
-**AFTER (success):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    // db.password is GONE
-    // db.connection_string is GONE
-    // api.secret is GONE
-  }
-}
-```
-
-### Challenge 3: Mask Credit Cards
-
-**BEFORE (problem):**
-```json
-{
-  "name": "PaymentService/Charge",
-  "attributes": {
-    "user.credit_card": "4532-8721-9012-3456",
-    "payment.card_number": "5425-2334-3010-9903"
-  }
-}
-```
-
-**AFTER (success):**
-```json
-{
-  "name": "PaymentService/Charge",
-  "attributes": {
-    "user.credit_card": "****",
-    "payment.card_number": "****"
-  }
-}
-```
-
-### Challenge 4: Hash Emails
-
-**BEFORE (problem):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    "user.email": "john.smith@example.com"
-  }
-}
-```
-
-**AFTER (success):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    "user.email_hash": "a8f2d9e1c4b73f5a2e1d8c9b7a6f5e4d3c2b1a0..."
-  }
-}
-```
-Note: `user.email` is completely gone, replaced by `user.email_hash`
-
-### Challenge 5: Zero-Trust Allowlist
-
-**BEFORE (problem):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    "http.method": "POST",
-    "http.status_code": 200,
-    "user.email": "john.smith@...",
-    "db.password": "secret",
-    "customer.phone": "+1-212-...",
-    // ... 20+ more attributes
-  }
-}
-```
-
-**AFTER (success):**
-```json
-{
-  "name": "CheckoutService/PlaceOrder",
-  "attributes": {
-    "http.method": "POST",
-    "http.status_code": 200,
-    "rpc.service": "oteldemo.CheckoutService",
-    "rpc.method": "PlaceOrder",
-    "service.name": "checkoutservice"
-    // ONLY allowed keys remain - everything else is gone
-  }
-}
-```
 
 ---
 
@@ -237,46 +251,6 @@ docker logs otel-collector --tail=50
 # Check all service status
 docker compose ps
 
-# Follow collector logs in real-time
-docker logs -f otel-collector
-
-# Restart everything if things are broken
+# Restart everything if broken
 make stop && make start
 ```
-
----
-
-## Pipeline Order Quick Reference
-
-When all challenges are enabled, your pipeline should be:
-
-```yaml
-processors: [
-  resourcedetection,        # 1. Base
-  memory_limiter,           # 2. Base
-  transform,                # 3. Base
-  transform/inject-pii,     # 4. Base (the problem)
-  attributes/delete-secrets,# 5. Challenge 2
-  transform/hash-pii,       # 6. Challenge 4
-  redaction/credit-cards,   # 7. Challenge 3
-  redaction/allowlist,      # 8. Challenge 5
-  tail_sampling/intelligent,# 9. Challenge 6
-  batch                     # 10. ALWAYS LAST
-]
-```
-
-**Remember:**
-- `transform/hash-pii` must come BEFORE `redaction/` processors
-- `tail_sampling/intelligent` must come BEFORE `batch`
-- `batch` is ALWAYS last
-
----
-
-## Still Stuck?
-
-1. Check the error message in `docker logs otel-collector --tail=50`
-2. Compare your YAML to the examples in `otelcol-config-extras.yml`
-3. Make sure processor is both UNCOMMENTED and ADDED TO PIPELINE
-4. Ask a facilitator for help!
-
-**Good luck!**

@@ -113,11 +113,12 @@ No code changes needed - this is pure investigation!
 ### Delete Secrets (Easy - 30 pts)
 **Goal:** Remove database credentials and API secrets from traces.
 
-1. Open `src/otel-collector/otelcol-config-extras.yml`
-2. Find and uncomment the `attributes/delete-secrets` processor
-3. Add `attributes/delete-secrets` to the traces pipeline (see instructions in file)
-4. Run: `make restart service=otel-collector`
-5. Wait 1-2 minutes, then check Coralogix
+1. Open `CHEAT-SHEET.md` and find **Delete Secrets**
+2. Copy the processor config
+3. Paste into `src/otel-collector/otelcol-config-extras.yml` (in the `processors:` section)
+4. Add `attributes/delete-secrets` to the traces pipeline (before `batch`)
+5. Run: `make restart service=otel-collector`
+6. Wait 1-2 minutes, then check Coralogix
 
 **Before:** `db.password: "Pr0d_P@ssw0rd_2024!"`
 **After:** Attribute is completely gone
@@ -129,11 +130,12 @@ No code changes needed - this is pure investigation!
 ### Mask Credit Cards (Medium - 40 pts)
 **Goal:** Redact credit card numbers while keeping the attribute present.
 
-1. Open `src/otel-collector/otelcol-config-extras.yml`
-2. Find and uncomment the `redaction/credit-cards` processor
-3. Add `redaction/credit-cards` to the traces pipeline
-4. Run: `make restart service=otel-collector`
-5. Wait 1-2 minutes, then check Coralogix
+1. Open `CHEAT-SHEET.md` and find **Mask Credit Cards**
+2. Copy the processor config
+3. Paste into `otelcol-config-extras.yml`
+4. Add `redaction/credit-cards` to the traces pipeline
+5. Run: `make restart service=otel-collector`
+6. Wait 1-2 minutes, then check Coralogix
 
 **Before:** `user.credit_card: "4532-8721-9012-3456"`
 **After:** `user.credit_card: "****"`
@@ -145,11 +147,12 @@ No code changes needed - this is pure investigation!
 ### Hash Emails (Medium - 40 pts)
 **Goal:** Replace email addresses with SHA256 hashes for pseudonymized analytics.
 
-1. Open `src/otel-collector/otelcol-config-extras.yml`
-2. Find and uncomment the `transform/hash-pii` processor
-3. Add `transform/hash-pii` to the traces pipeline
-4. Run: `make restart service=otel-collector`
-5. Wait 1-2 minutes, then check Coralogix
+1. Open `CHEAT-SHEET.md` and find **Hash Emails**
+2. Copy the processor config
+3. Paste into `otelcol-config-extras.yml`
+4. Add `transform/hash-pii` to the traces pipeline (BEFORE redaction processors!)
+5. Run: `make restart service=otel-collector`
+6. Wait 1-2 minutes, then check Coralogix
 
 **Before:** `user.email: "john.smith@example.com"`
 **After:** `user.email_hash: "a8f2d9e1c4b7..."` (64-character hex)
@@ -163,13 +166,14 @@ The original `user.email` should be gone!
 ### Zero-Trust Allowlist (Hard - 50 pts)
 **Goal:** Implement fail-closed security - only explicitly allowed attributes pass through.
 
-> **WARNING:** This is destructive! Most span attributes will be removed. Only enable this if you understand the implications.
+> **WARNING:** This is destructive! Most span attributes will be removed.
 
-1. Open `src/otel-collector/otelcol-config-extras.yml`
-2. Find and uncomment the `redaction/allowlist` processor
-3. Add `redaction/allowlist` to the traces pipeline
-4. Run: `make restart service=otel-collector`
-5. Wait 1-2 minutes, then check Coralogix
+1. Open `CHEAT-SHEET.md` and find **Zero-Trust Allowlist**
+2. Copy the processor config
+3. Paste into `otelcol-config-extras.yml`
+4. Add `redaction/allowlist` to the traces pipeline
+5. Run: `make restart service=otel-collector`
+6. Wait 1-2 minutes, then check Coralogix
 
 **Before:** 20+ attributes per span
 **After:** Only 5-10 explicitly allowed attributes remain
@@ -181,12 +185,12 @@ The original `user.email` should be gone!
 ### Tail Sampling (Hard - 50 pts)
 **Goal:** Keep 100% of errors, sample 10% of successful requests to reduce costs.
 
-1. Open `src/otel-collector/otelcol-config-extras.yml`
-2. Find and uncomment the `tail_sampling/intelligent` processor
-3. Add `tail_sampling/intelligent` to the traces pipeline **BEFORE batch**
-4. Run: `make restart service=otel-collector`
-5. Generate some traffic, including errors if possible
-6. Wait 1-2 minutes, then check Coralogix
+1. Open `CHEAT-SHEET.md` and find **Tail Sampling**
+2. Copy the processor config
+3. Paste into `otelcol-config-extras.yml`
+4. Add `tail_sampling/intelligent` to the traces pipeline (BEFORE `batch`!)
+5. Run: `make restart service=otel-collector`
+6. Generate some traffic, then check Coralogix
 
 **Verification:** All error traces should be present. Successful traces should be reduced.
 

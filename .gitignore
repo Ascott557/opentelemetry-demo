@@ -20,6 +20,7 @@ bin/
 obj/
 .vs/
 .vscode
+.cursor/
 .gradle/
 .idea/
 build/

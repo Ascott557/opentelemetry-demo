@@ -187,10 +187,9 @@ start:
 	@echo ""
 	@echo "OpenTelemetry Demo is running."
 	@echo "Go to http://localhost:8080 for the demo UI."
-	@echo "Go to http://localhost:8080/jaeger/ui for the Jaeger UI."
-	@echo "Go to http://localhost:8080/grafana/ for the Grafana UI."
-	@echo "Go to http://localhost:8080/loadgen/ for the Load Generator UI."
-	@echo "Go to http://localhost:8080/feature/ to change feature flags."
+	@echo ""
+	@echo "HACKATHON: Verify your work in Coralogix (URL from facilitator)."
+	@echo "See HACKATHON-README.md for instructions."
 
 .PHONY: start-minimal
 start-minimal:

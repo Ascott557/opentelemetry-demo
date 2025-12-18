@@ -1,4 +1,6 @@
 <!-- markdownlint-disable-next-line -->
+> **HACKATHON PARTICIPANTS:** Skip this file! Go to **[HACKATHON-README.md](HACKATHON-README.md)** for instructions.
+
 # <img src="https://opentelemetry.io/img/logos/opentelemetry-logo-nav.png" alt="OTel logo" width="45"> OpenTelemetry Demo
 
 [![Slack](https://img.shields.io/badge/slack-@cncf/otel/demo-brightgreen.svg?logo=slack)](https://cloud-native.slack.com/archives/C03B4CWV4DA)
