@@ -10,27 +10,24 @@ You'll use the OpenTelemetry Collector to filter, mask, and redact sensitive dat
 
 ---
 
-## Quick Start
+## Quick Start (3 Steps)
 
-### 1. Create Your Config File
+### 1. Configure Your Team
+Open `.env.override` (already created for you) and fill in:
+
 ```bash
-cp .env.override.template .env.override
+TEAM_NAME=your-team-name    # e.g., team-alpha
+CX_API_KEY=xxxxx            # Get from facilitator
+CX_DOMAIN=xxxxx             # Get from facilitator
 ```
 
-### 2. Configure Your Team
-```bash
-code .env.override
-```
-- Change `TEAM_NAME=team-1` to your actual team name (e.g., `team-alpha`)
-- The facilitator will provide the API key
-
-### 3. Start the Demo
+### 2. Start the Demo
 ```bash
 make start
 ```
 Wait ~2 minutes for all services to start.
 
-### 4. Open the Store
+### 3. Open the Store
 Click the popup or go to: **PORTS tab -> Port 8080 -> Globe icon**
 
 (Or http://localhost:8080 if running locally)
