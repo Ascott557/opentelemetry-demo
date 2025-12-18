@@ -224,7 +224,7 @@ service:
           transform/inject-pii,
           batch,
         ]
-      exporters: [otlp, debug, spanmetrics]
+      exporters: [coralogix, otlp, debug, spanmetrics]
     metrics:
       receivers:
         [
@@ -238,11 +238,11 @@ service:
           spanmetrics,
         ]
       processors: [resourcedetection, memory_limiter, batch]
-      exporters: [otlphttp/prometheus, debug]
+      exporters: [coralogix, otlphttp/prometheus, debug]
     logs:
       receivers: [otlp]
       processors: [resourcedetection, memory_limiter, batch]
-      exporters: [opensearch, debug]
+      exporters: [coralogix, opensearch, debug]
   telemetry:
     metrics:
       level: detailed

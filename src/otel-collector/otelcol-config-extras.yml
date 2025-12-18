@@ -21,52 +21,5 @@ processors:
   # PASTE YOUR CHALLENGE PROCESSORS HERE
   # ===========================================================================
   # Copy processor configs from CHEAT-SHEET.md
+  # Then add the processor name to the pipeline in otelcol-config.yml
   # ===========================================================================
-
-connectors:
-  spanmetrics:
-    dimensions:
-      - name: http.method
-      - name: http.status_code
-      - name: http.route
-      - name: service.name
-    histogram:
-      explicit:
-        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
-    exemplars:
-      enabled: true
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      # Add your processors before 'batch'
-      processors:
-        [
-          resourcedetection,
-          memory_limiter,
-          transform,
-          transform/inject-pii,
-          batch,
-        ]
-      exporters: [coralogix, otlp, debug, spanmetrics]
-
-    metrics:
-      receivers:
-        [
-          docker_stats,
-          httpcheck/frontend-proxy,
-          hostmetrics,
-          nginx,
-          otlp,
-          postgresql,
-          redis,
-          spanmetrics,
-        ]
-      processors: [resourcedetection, memory_limiter, batch]
-      exporters: [coralogix, otlphttp/prometheus, debug]
-
-    logs:
-      receivers: [otlp]
-      processors: [resourcedetection, memory_limiter, batch]
-      exporters: [coralogix, opensearch, debug]
