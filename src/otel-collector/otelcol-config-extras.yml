@@ -41,11 +41,28 @@ service:
     traces:
       receivers: [otlp]
       # Add your processors before 'batch'
-      processors: [resourcedetection, memory_limiter, transform, transform/inject-pii, batch]
+      processors:
+        [
+          resourcedetection,
+          memory_limiter,
+          transform,
+          transform/inject-pii,
+          batch,
+        ]
       exporters: [coralogix, otlp, debug, spanmetrics]
 
     metrics:
-      receivers: [docker_stats, httpcheck/frontend-proxy, hostmetrics, nginx, otlp, postgresql, redis, spanmetrics]
+      receivers:
+        [
+          docker_stats,
+          httpcheck/frontend-proxy,
+          hostmetrics,
+          nginx,
+          otlp,
+          postgresql,
+          redis,
+          spanmetrics,
+        ]
       processors: [resourcedetection, memory_limiter, batch]
       exporters: [coralogix, otlphttp/prometheus, debug]
 
